@@ -54,7 +54,10 @@ import {
 	isLidUser,
 	jidDecode,
 	jidNormalizedUser,
-	S_WHATSAPP_NET
+	S_WHATSAPP_NET,
+	isInternationalJid,
+	isHiddenNumberJid,
+	validateAndFixJid
 } from '../WABinary'
 import { extractGroupMetadata } from './groups'
 import { makeMessagesSocket } from './messages-send'
@@ -104,6 +107,21 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 		})
 
 	let sendActiveReceipts = false
+
+	// Função para melhorar o processamento de mensagens de números especiais
+	const processSpecialNumberMessage = async (node: BinaryNode) => {
+		const remoteJid = node.attrs.from
+		if (!remoteJid) return node
+
+		// Validar e corrigir JID para números internacionais e ocultos
+		const validatedJid = validateAndFixJid(remoteJid)
+		if (validatedJid !== remoteJid) {
+			node.attrs.from = validatedJid
+			logger.debug({ originalJid: remoteJid, validatedJid }, 'corrected JID for special number')
+		}
+
+		return node
+	}
 
 	const sendMessageAck = async ({ tag, attrs, content }: BinaryNode, errorCode?: number) => {
 		const stanza: BinaryNode = {
@@ -635,6 +653,9 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 	}
 
 	const handleReceipt = async (node: BinaryNode) => {
+		// Processar recebimentos de números especiais
+		await processSpecialNumberMessage(node)
+
 		const { attrs, content } = node
 		const isLid = attrs.from!.includes('lid')
 		const isNodeFromMe = areJidsSameUser(
@@ -726,6 +747,9 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 	}
 
 	const handleNotification = async (node: BinaryNode) => {
+		// Processar notificações de números especiais
+		await processSpecialNumberMessage(node)
+
 		const remoteJid = node.attrs.from
 		if (shouldIgnoreJid(remoteJid!) && remoteJid !== '@s.whatsapp.net') {
 			logger.debug({ remoteJid, id: node.attrs.id }, 'ignored notification')
@@ -760,6 +784,9 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 	}
 
 	const handleMessage = async (node: BinaryNode) => {
+		// Processar mensagens de números especiais
+		await processSpecialNumberMessage(node)
+
 		if (shouldIgnoreJid(node.attrs.from!) && node.attrs.from !== '@s.whatsapp.net') {
 			logger.debug({ key: node.attrs.key }, 'ignored message')
 			await sendMessageAck(node)

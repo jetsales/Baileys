@@ -43,7 +43,11 @@ import {
 	jidEncode,
 	jidNormalizedUser,
 	type JidWithDevice,
-	S_WHATSAPP_NET
+	S_WHATSAPP_NET,
+	isInternationalJid,
+	isHiddenNumberJid,
+	createValidJid,
+	normalizePhoneNumber
 } from '../WABinary'
 import { USyncQuery, USyncUser } from '../WAUSync'
 import { makeGroupsSocket } from './groups'
@@ -79,6 +83,19 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 			stdTTL: DEFAULT_CACHE_TTLS.USER_DEVICES, // 5 minutes
 			useClones: false
 		})
+
+	// Função para validar e corrigir JID para números especiais
+	const validateAndFixJid = (jid: string): string => {
+		// Se é número internacional ou oculto, garante que está no formato correto
+		if (isInternationalJid(jid) || isHiddenNumberJid(jid)) {
+			const decoded = jidDecode(jid)
+			if (decoded) {
+				const normalizedNumber = normalizePhoneNumber(decoded.user)
+				return jidEncode(normalizedNumber, decoded.server, decoded.device)
+			}
+		}
+		return jid
+	}
 
 	let mediaConn: Promise<MediaConnInfo>
 	const refreshMediaConn = async (forceGet = false) => {
@@ -373,12 +390,15 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 	) => {
 		const meId = authState.creds.me!.id
 
+		// Validar e corrigir JID para números especiais
+		const validatedJid = validateAndFixJid(jid)
+		
 		let shouldIncludeDeviceIdentity = false
 
-		const { user, server } = jidDecode(jid)!
+		const { user, server } = jidDecode(validatedJid)!
 		const statusJid = 'status@broadcast'
 		const isGroup = server === 'g.us'
-		const isStatus = jid === statusJid
+		const isStatus = validatedJid === statusJid
 		const isLid = server === 'lid'
 		const isNewsletter = server === 'newsletter'
 
@@ -431,14 +451,14 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 				const stanza: BinaryNode = {
 					tag: 'message',
 					attrs: {
-						to: jid,
+						to: validatedJid,
 						id: msgId,
 						type: getMessageType(message),
 						...(additionalAttributes || {})
 					},
 					content: binaryNodeContent
 				}
-				logger.debug({ msgId }, `sending newsletter message to ${jid}`)
+				logger.debug({ msgId }, `sending newsletter message to ${validatedJid}`)
 				await sendNode(stanza)
 				return
 			}
@@ -450,20 +470,20 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 			if (isGroup || isStatus) {
 				const [groupData, senderKeyMap] = await Promise.all([
 					(async () => {
-						let groupData = useCachedGroupMetadata && cachedGroupMetadata ? await cachedGroupMetadata(jid) : undefined
+						let groupData = useCachedGroupMetadata && cachedGroupMetadata ? await cachedGroupMetadata(validatedJid) : undefined
 						if (groupData && Array.isArray(groupData?.participants)) {
-							logger.trace({ jid, participants: groupData.participants.length }, 'using cached group metadata')
+							logger.trace({ jid: validatedJid, participants: groupData.participants.length }, 'using cached group metadata')
 						} else if (!isStatus) {
-							groupData = await groupMetadata(jid)
+							groupData = await groupMetadata(validatedJid)
 						}
 
 						return groupData
 					})(),
 					(async () => {
-						if (!participant && !isStatus) {
-							const result = await authState.keys.get('sender-key-memory', [jid])
-							return result[jid] || {}
-						}
+											if (!participant && !isStatus) {
+						const result = await authState.keys.get('sender-key-memory', [validatedJid])
+						return result[validatedJid] || {}
+					}
 
 						return {}
 					})()
@@ -537,7 +557,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 					content: ciphertext
 				})
 
-				await authState.keys.set({ 'sender-key-memory': { [jid]: senderKeyMap } })
+				await authState.keys.set({ 'sender-key-memory': { [validatedJid]: senderKeyMap } })
 			} else {
 				const { user: meUser } = jidDecode(meId)!
 
@@ -548,7 +568,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 					}
 
 					if (additionalAttributes?.['category'] !== 'peer') {
-						const additionalDevices = await getUSyncDevices([meId, jid], !!useUserDevicesCache, true)
+						const additionalDevices = await getUSyncDevices([meId, validatedJid], !!useUserDevicesCache, true)
 						devices.push(...additionalDevices)
 					}
 				}

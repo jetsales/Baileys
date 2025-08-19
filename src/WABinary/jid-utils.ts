@@ -17,8 +17,41 @@ export type FullJid = JidWithDevice & {
 	domainType?: number
 }
 
+// Função para validar se um número é internacional (DDI diferente de 55)
+export const isInternationalNumber = (number: string): boolean => {
+	const cleanNumber = number.replace(/\D/g, '')
+	// Verifica se o número tem DDI diferente de 55 (Brasil)
+	return cleanNumber.length > 0 && !cleanNumber.startsWith('55')
+}
+
+// Função para detectar números ocultos
+export const isHiddenNumber = (number: string): boolean => {
+	const cleanNumber = number.replace(/\D/g, '')
+	// Números ocultos geralmente começam com 0 ou têm formato específico
+	return cleanNumber.startsWith('0') || cleanNumber.length < 10
+}
+
+// Função para normalizar número de telefone
+export const normalizePhoneNumber = (number: string): string => {
+	let cleanNumber = number.replace(/\D/g, '')
+	
+	// Remove zeros à esquerda desnecessários
+	while (cleanNumber.startsWith('0') && cleanNumber.length > 1) {
+		cleanNumber = cleanNumber.substring(1)
+	}
+	
+	// Se não tem DDI, assume Brasil (55)
+	if (cleanNumber.length === 10 || cleanNumber.length === 11) {
+		cleanNumber = '55' + cleanNumber
+	}
+	
+	return cleanNumber
+}
+
 export const jidEncode = (user: string | number | null, server: JidServer, device?: number, agent?: number) => {
-	return `${user || ''}${!!agent ? `_${agent}` : ''}${!!device ? `:${device}` : ''}@${server}`
+	// Normaliza o número antes de codificar
+	const normalizedUser = typeof user === 'string' ? normalizePhoneNumber(user) : user?.toString() || ''
+	return `${normalizedUser || ''}${!!agent ? `_${agent}` : ''}${!!device ? `:${device}` : ''}@${server}`
 }
 
 export const jidDecode = (jid: string | undefined): FullJid | undefined => {
@@ -71,4 +104,37 @@ export const jidNormalizedUser = (jid: string | undefined) => {
 
 	const { user, server } = result
 	return jidEncode(user, server === 'c.us' ? 's.whatsapp.net' : (server as JidServer))
+}
+
+// Função para validar se um JID é de número internacional
+export const isInternationalJid = (jid: string | undefined): boolean => {
+	const decoded = jidDecode(jid)
+	if (!decoded) return false
+	return isInternationalNumber(decoded.user)
+}
+
+// Função para validar se um JID é de número oculto
+export const isHiddenNumberJid = (jid: string | undefined): boolean => {
+	const decoded = jidDecode(jid)
+	if (!decoded) return false
+	return isHiddenNumber(decoded.user)
+}
+
+// Função para criar JID válido para números internacionais e ocultos
+export const createValidJid = (number: string, server: JidServer = 's.whatsapp.net'): string => {
+	const normalizedNumber = normalizePhoneNumber(number)
+	return jidEncode(normalizedNumber, server)
+}
+
+// Função para validar e corrigir JID para números especiais
+export const validateAndFixJid = (jid: string): string => {
+	// Se é número internacional ou oculto, garante que está no formato correto
+	if (isInternationalJid(jid) || isHiddenNumberJid(jid)) {
+		const decoded = jidDecode(jid)
+		if (decoded) {
+			const normalizedNumber = normalizePhoneNumber(decoded.user)
+			return jidEncode(normalizedNumber, decoded.server, decoded.device)
+		}
+	}
+	return jid
 }

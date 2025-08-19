@@ -656,7 +656,8 @@ export const generateWAMessageFromContent = (
 		messageTimestamp: timestamp,
 		messageStubParameters: [],
 		participant: isJidGroup(jid) || isJidStatusBroadcast(jid) ? userJid : undefined,
-		status: WAMessageStatus.PENDING
+		// Melhorar o status inicial para evitar "aguardando mensagem" persistente
+		status: WAMessageStatus.SERVER_ACK
 	}
 	return WAProto.WebMessageInfo.fromObject(messageJSON)
 }
