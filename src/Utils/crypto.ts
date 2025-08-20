@@ -137,7 +137,7 @@ export async function hkdf(
 	const infoBytes = info.info ? new TextEncoder().encode(info.info) : new Uint8Array(0)
 
 	// Import the input key material
-	const importedKey = await subtle.importKey('raw', inputKeyMaterial, { name: 'HKDF' }, false, ['deriveBits'])
+	const importedKey = await subtle.importKey('raw', inputKeyMaterial as BufferSource, { name: 'HKDF' }, false, ['deriveBits'])
 
 	// Derive bits using HKDF
 	const derivedBits = await subtle.deriveBits(
@@ -161,14 +161,14 @@ export async function derivePairingCodeKey(pairingCode: string, salt: Buffer): P
 	const saltBuffer = salt instanceof Uint8Array ? salt : new Uint8Array(salt)
 
 	// Import the pairing code as key material
-	const keyMaterial = await subtle.importKey('raw', pairingCodeBuffer, { name: 'PBKDF2' }, false, ['deriveBits'])
+	const keyMaterial = await subtle.importKey('raw', pairingCodeBuffer as BufferSource, { name: 'PBKDF2' }, false, ['deriveBits'])
 
 	// Derive bits using PBKDF2 with the same parameters
 	// 2 << 16 = 131,072 iterations
 	const derivedBits = await subtle.deriveBits(
 		{
 			name: 'PBKDF2',
-			salt: saltBuffer,
+			salt: saltBuffer as BufferSource,
 			iterations: 2 << 16,
 			hash: 'SHA-256'
 		},
