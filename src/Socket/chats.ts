@@ -651,7 +651,11 @@ export const makeChatsSocket = (config: SocketConfig) => {
 				}
 			})
 		} else {
-			const { server } = jidDecode(toJid)!
+			const decodedJid = jidDecode(toJid)
+			if (!decodedJid) {
+				throw new Error(`Invalid JID: ${toJid}`)
+			}
+			const { server } = decodedJid
 			const isLid = server === 'lid'
 
 			await sendNode({

@@ -86,14 +86,25 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
 	// Função para validar e corrigir JID para números especiais
 	const validateAndFixJid = (jid: string): string => {
+		
+		
 		// Se é número internacional ou oculto, garante que está no formato correto
 		if (isInternationalJid(jid) || isHiddenNumberJid(jid)) {
 			const decoded = jidDecode(jid)
+			console.log('Decoded result:', decoded);
+			
 			if (decoded) {
 				const normalizedNumber = normalizePhoneNumber(decoded.user)
-				return jidEncode(normalizedNumber, decoded.server, decoded.device)
+				const result = jidEncode(normalizedNumber, decoded.server, decoded.device)
+				console.log('Normalized number:', normalizedNumber);
+				console.log('Result JID:', result);
+				console.log('========================');
+				return result
 			}
 		}
+		
+		console.log('Returning original JID:', jid);
+		console.log('========================');
 		return jid
 	}
 
@@ -395,7 +406,12 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 		
 		let shouldIncludeDeviceIdentity = false
 
-		const { user, server } = jidDecode(validatedJid)!
+		const decodedJid = jidDecode(validatedJid)
+		if (!decodedJid) {
+			throw new Error(`Invalid JID: ${validatedJid}`)
+		}
+		
+		const { user, server } = decodedJid
 		const statusJid = 'status@broadcast'
 		const isGroup = server === 'g.us'
 		const isStatus = validatedJid === statusJid
@@ -429,7 +445,11 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 				additionalAttributes = { ...additionalAttributes, device_fanout: 'false' }
 			}
 
-			const { user, device } = jidDecode(participant.jid)!
+			const decodedParticipant = jidDecode(participant.jid)
+			if (!decodedParticipant) {
+				throw new Error(`Invalid participant JID: ${participant.jid}`)
+			}
+			const { user, device } = decodedParticipant
 			devices.push({ user, device })
 		}
 
@@ -559,7 +579,11 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
 				await authState.keys.set({ 'sender-key-memory': { [validatedJid]: senderKeyMap } })
 			} else {
-				const { user: meUser } = jidDecode(meId)!
+				const decodedMeId = jidDecode(meId)
+				if (!decodedMeId) {
+					throw new Error(`Invalid meId JID: ${meId}`)
+				}
+				const { user: meUser } = decodedMeId
 
 				if (!participant) {
 					devices.push({ user })

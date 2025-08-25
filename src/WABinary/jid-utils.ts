@@ -20,6 +20,17 @@ export type FullJid = JidWithDevice & {
 // Função para validar se um número é internacional (DDI diferente de 55)
 export const isInternationalNumber = (number: string): boolean => {
 	const cleanNumber = number.replace(/\D/g, '')
+	
+	// Se o número começa com 1 e tem 11 dígitos, é dos EUA (não internacional para o contexto)
+	if (cleanNumber.startsWith('1') && cleanNumber.length === 11) {
+		return false
+	}
+	
+	// Se o número tem 13 dígitos e começa com 551, é um número dos EUA com 55 na frente
+	if (cleanNumber.length === 13 && cleanNumber.startsWith('551')) {
+		return false
+	}
+	
 	// Verifica se o número tem DDI diferente de 55 (Brasil)
 	return cleanNumber.length > 0 && !cleanNumber.startsWith('55')
 }
@@ -40,8 +51,18 @@ export const normalizePhoneNumber = (number: string): string => {
 		cleanNumber = cleanNumber.substring(1)
 	}
 	
-	// Se não tem DDI, assume Brasil (55)
-	if (cleanNumber.length === 10 || cleanNumber.length === 11) {
+	// Se o número começa com 1 e tem 11 dígitos, é dos EUA - não adiciona 55
+	if (cleanNumber.startsWith('1') && cleanNumber.length === 11) {
+		return cleanNumber
+	}
+	
+	// Se o número tem 13 dígitos e começa com 551, remove o 55 na frente
+	if (cleanNumber.length === 13 && cleanNumber.startsWith('551')) {
+		return cleanNumber.substring(2) // Remove o '55' na frente
+	}
+	
+	// Se não tem DDI e tem 10-11 dígitos, assume Brasil (55)
+	if ((cleanNumber.length === 10 || cleanNumber.length === 11) && !cleanNumber.startsWith('1')) {
 		cleanNumber = '55' + cleanNumber
 	}
 	
@@ -55,23 +76,42 @@ export const jidEncode = (user: string | number | null, server: JidServer, devic
 }
 
 export const jidDecode = (jid: string | undefined): FullJid | undefined => {
+	console.log('=== JID DECODE DEBUG ===');
+	console.log('Input JID:', jid);
+	console.log('Type of JID:', typeof jid);
+	
 	const sepIdx = typeof jid === 'string' ? jid.indexOf('@') : -1
+	console.log('Separator index:', sepIdx);
+	
 	if (sepIdx < 0) {
+		console.log('No @ found, returning undefined');
 		return undefined
 	}
 
 	const server = jid!.slice(sepIdx + 1)
 	const userCombined = jid!.slice(0, sepIdx)
+	
+	console.log('Server part:', server);
+	console.log('User combined part:', userCombined);
 
 	const [userAgent, device] = userCombined.split(':')
 	const user = userAgent!.split('_')[0]!
-
-	return {
+	
+	console.log('User agent:', userAgent);
+	console.log('Device:', device);
+	console.log('Final user:', user);
+	
+	const result = {
 		server: server as JidServer,
 		user,
 		domainType: server === 'lid' ? 1 : 0,
 		device: device ? +device : undefined
 	}
+	
+	console.log('Decoded result:', result);
+	console.log('========================');
+	
+	return result
 }
 
 /** is the jid a user */
