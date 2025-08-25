@@ -91,20 +91,14 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 		// Se é número internacional ou oculto, garante que está no formato correto
 		if (isInternationalJid(jid) || isHiddenNumberJid(jid)) {
 			const decoded = jidDecode(jid)
-			console.log('Decoded result:', decoded);
-			
-			if (decoded) {
-				const normalizedNumber = normalizePhoneNumber(decoded.user)
-				const result = jidEncode(normalizedNumber, decoded.server, decoded.device)
-				console.log('Normalized number:', normalizedNumber);
-				console.log('Result JID:', result);
-				console.log('========================');
-				return result
-			}
+					
+		if (decoded) {
+			const normalizedNumber = normalizePhoneNumber(decoded.user)
+			const result = jidEncode(normalizedNumber, decoded.server, decoded.device)
+			return result
 		}
-		
-		console.log('Returning original JID:', jid);
-		console.log('========================');
+	}
+	
 		return jid
 	}
 

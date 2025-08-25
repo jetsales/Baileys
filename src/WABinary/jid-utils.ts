@@ -76,40 +76,25 @@ export const jidEncode = (user: string | number | null, server: JidServer, devic
 }
 
 export const jidDecode = (jid: string | undefined): FullJid | undefined => {
-	console.log('=== JID DECODE DEBUG ===');
-	console.log('Input JID:', jid);
-	console.log('Type of JID:', typeof jid);
+
 	
 	const sepIdx = typeof jid === 'string' ? jid.indexOf('@') : -1
-	console.log('Separator index:', sepIdx);
-	
-	if (sepIdx < 0) {
-		console.log('No @ found, returning undefined');
-		return undefined
-	}
+			if (sepIdx < 0) {
+			return undefined
+		}
 
-	const server = jid!.slice(sepIdx + 1)
-	const userCombined = jid!.slice(0, sepIdx)
-	
-	console.log('Server part:', server);
-	console.log('User combined part:', userCombined);
+		const server = jid!.slice(sepIdx + 1)
+		const userCombined = jid!.slice(0, sepIdx)
 
-	const [userAgent, device] = userCombined.split(':')
-	const user = userAgent!.split('_')[0]!
-	
-	console.log('User agent:', userAgent);
-	console.log('Device:', device);
-	console.log('Final user:', user);
-	
-	const result = {
-		server: server as JidServer,
-		user,
-		domainType: server === 'lid' ? 1 : 0,
-		device: device ? +device : undefined
-	}
-	
-	console.log('Decoded result:', result);
-	console.log('========================');
+		const [userAgent, device] = userCombined.split(':')
+		const user = userAgent!.split('_')[0]!
+		
+		const result = {
+			server: server as JidServer,
+			user,
+			domainType: server === 'lid' ? 1 : 0,
+			device: device ? +device : undefined
+		}
 	
 	return result
 }
